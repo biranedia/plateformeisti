@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulaire d'informations personnelles</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #444;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            border-color: #4a90e2;
+            outline: none;
+            box-shadow: 0 0 5px rgba(74, 144, 226, 0.3);
+        }
+        
+        .row {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .row .form-group {
+            flex: 1;
+        }
+        
+        button {
+            background-color: #4a90e2;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            display: block;
+            margin: 30px auto 0;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #357abd;
+        }
+        
+        .required:after {
+            content: " *";
+            color: #e74c3c;
+        }
+        
+        .error {
+            color: #e74c3c;
+            font-size: 14px;
+            margin-top: 5px;
+            display: none;
+        }
+        
+        input.invalid, select.invalid, textarea.invalid {
+            border-color: #e74c3c;
+        }
+        
+        #formResult {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+            display: none;
+        }
+        
+        #formResult h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        #formResult p {
+            margin-bottom: 8px;
+        }
+        
+        #formResult strong {
+            font-weight: 600;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="formContainer">
+        <!-- Le formulaire sera généré ici par JavaScript -->
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Structure du formulaire à générer
+            const formFields = [
+                {
+                    type: 'row',
+                    fields: [
+                        {
+                            id: 'prenom',
+                            label: 'Prénom',
+                            type: 'text',
+                            required: true,
+                            placeholder: 'Votre prénom'
+                        },
+                        {
+                            id: 'nom',
+                            label: 'Nom',
+                            type: 'text',
+                            required: true,
+                            placeholder: 'Votre nom'
+                        }
+                    ]
+                },
+                {
+                    id: 'email',
+                    label: 'Email',
+                    type: 'email',
+                    required: true,
+                    placeholder: 'votre.email@exemple.com'
+                },
+                {
+                    id: 'telephone',
+                    label: 'Numéro de téléphone',
+                    type: 'tel',
+                    required: true,
+                    placeholder: '06 12 34 56 78'
+                },
+                {
+                    type: 'row',
+                    fields: [
+                        {
+                            id: 'adresse',
+                            label: 'Adresse',
+                            type: 'text',
+                            required: true,
+                            placeholder: 'Numéro et nom de rue'
+                        },
+                        {
+                            id: 'complement',
+                            label: 'Complément d\'adresse',
+                            type: 'text',
+                            required: false,
+                            placeholder: 'Appartement, bâtiment, etc.'
+                        }
+                    ]
+                },
+                {
+                    type: 'row',
+                    fields: [
+                        {
+                            id: 'codePostal',
+                            label: 'Code postal',
+                            type: 'text',
+                            required: true,
+                            placeholder: '75000'
+                        },
+                        {
+                            id: 'ville',
+                            label: 'Ville',
+                            type: 'text',
+                            required: true,
+                            placeholder: 'Votre ville'
+                        }
+                    ]
+                },
+                {
+                    id: 'pays',
+                    label: 'Pays',
+                    type: 'select',
+                    required: true,
+                    options: [
+                        { value: '', text: 'Sélectionnez un pays' },
+                        { value: 'france', text: 'France' },
+                        { value: 'belgique', text: 'Belgique' },
+                        { value: 'suisse', text: 'Suisse' },
+                        { value: 'canada', text: 'Canada' },
+                        { value: 'autre', text: 'Autre' }
+                    ]
+                },
+                {
+                    id: 'dateNaissance',
+                    label: 'Date de naissance',
+                    type: 'date',
+                    required: true
+                },
+                {
+                    id: 'commentaire',
+                    label: 'Commentaires',
+                    type: 'textarea',
+                    required: false,
+                    placeholder: 'Informations supplémentaires...'
+                }
+            ];
+
+            // Générer le formulaire
+            const formContainer = document.getElementById('formContainer');
+            
+            // Créer le titre
+            const title = document.createElement('h1');
+            title.textContent = 'Formulaire d\'inscription';
+            formContainer.appendChild(title);
+            
+            // Créer le formulaire
+            const form = document.createElement('form');
+            form.id = 'personneForm';
+            
+            // Générer les champs du formulaire
+            formFields.forEach(field => {
+                if (field.type === 'row') {
+                    // Créer une ligne pour les champs côte à côte
+                    const row = document.createElement('div');
+                    row.className = 'row';
+                    
+                    field.fields.forEach(subField => {
+                        row.appendChild(createFormGroup(subField));
+                    });
+                    
+                    form.appendChild(row);
+                } else {
+                    // Créer un champ normal
+                    form.appendChild(createFormGroup(field));
+                }
+            });
+            
+            // Ajouter le bouton de soumission
+            const submitButton = document.createElement('button');
+            submitButton.type = 'submit';
+            submitButton.textContent = 'Envoyer';
+            form.appendChild(submitButton);
+            
+            // Ajouter la div pour afficher les résultats
+            const resultDiv = document.createElement('div');
+            resultDiv.id = 'formResult';
+            
+            formContainer.appendChild(form);
+            formContainer.appendChild(resultDiv);
+            
+            // Fonction pour créer un groupe de formulaire
+            function createFormGroup(field) {
+                const group = document.createElement('div');
+                group.className = 'form-group';
+                
+                const label = document.createElement('label');
+                label.htmlFor = field.id;
+                label.textContent = field.label;
+                if (field.required) {
+                    label.className = 'required';
+                }
+                group.appendChild(label);
+                
+                let input;
+                
+                if (field.type === 'textarea') {
+                    input = document.createElement('textarea');
+                    input.rows = 4;
+                } else if (field.type === 'select') {
+                    input = document.createElement('select');
+                    field.options.forEach(option => {
+                        const optElement = document.createElement('option');
+                        optElement.value = option.value;
+                        optElement.textContent = option.text;
+                        input.appendChild(optElement);
+                    });
+                } else {
+                    input = document.createElement('input');
+                    input.type = field.type;
+                }
+                
+                input.id = field.id;
+                input.name = field.id;
+                
+                if (field.placeholder) {
+                    input.placeholder = field.placeholder;
+                }
+                
+                if (field.required) {
+                    input.required = true;
+                }
+                
+                group.appendChild(input);
+                
+                // Ajouter un message d'erreur
+                const errorMsg = document.createElement('div');
+                errorMsg.className = 'error';
+                errorMsg.id = `${field.id}Error`;
+                errorMsg.textContent = `Le champ ${field.label} est requis`;
+                group.appendChild(errorMsg);
+                
+                return group;
+            }
+            
+            // Gestion de la soumission du formulaire
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Réinitialiser les erreurs
+                document.querySelectorAll('.error').forEach(el => {
+                    el.style.display = 'none';
+                });
+                document.querySelectorAll('input, select, textarea').forEach(el => {
+                    el.classList.remove('invalid');
+                });
+                
+                // Valider le formulaire
+                let isValid = true;
+                
+                formFields.forEach(field => {
+                    if (field.type === 'row') {
+                        field.fields.forEach(subField => {
+                            if (validateField(subField) === false) {
+                                isValid = false;
+                            }
+                        });
+                    } else if (validateField(field) === false) {
+                        isValid = false;
+                    }
+                });
+                
+                if (isValid) {
+                    // Collecter les données du formulaire
+                    const formData = new FormData(form);
+                    const formResult = document.getElementById('formResult');
+                    formResult.style.display = 'block';
+                    formResult.innerHTML = '<h3>Résumé des informations</h3>';
+                    
+                    for (const [key, value] of formData.entries()) {
+                        // Trouver le label correspondant à la clé
+                        let label = '';
+                        for (const field of formFields) {
+                            if (field.type === 'row') {
+                                for (const subField of field.fields) {
+                                    if (subField.id === key) {
+                                        label = subField.label;
+                                        break;
+                                    }
+                                }
+                            } else if (field.id === key) {
+                                label = field.label;
+                                break;
+                            }
+                        }
+                        
+                        const p = document.createElement('p');
+                        const strong = document.createElement('strong');
+                        strong.textContent = `${label}: `;
+                        p.appendChild(strong);
+                        p.appendChild(document.createTextNode(value));
+                        formResult.appendChild(p);
+                    }
+                }
+            });
+            
+            // Fonction pour valider un champ
+            function validateField(field) {
+                if (!field.required) return true;
+                
+                const element = document.getElementById(field.id);
+                const errorElement = document.getElementById(`${field.id}Error`);
+                
+                if (!element.value.trim()) {
+                    element.classList.add('invalid');
+                    errorElement.style.display = 'block';
+                    return false;
+                }
+                
+                // Validation spécifique pour l'email
+                if (field.type === 'email') {
+                    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (!emailPattern.test(element.value)) {
+                        element.classList.add('invalid');
+                        errorElement.textContent = 'Veuillez entrer une adresse email valide';
+                        errorElement.style.display = 'block';
+                        return false;
+                    }
+                }
+                
+                // Validation spécifique pour le téléphone
+                if (field.id === 'telephone') {
+                    const telPattern = /^[0-9\s+\-().]{8,}$/;
+                    if (!telPattern.test(element.value)) {
+                        element.classList.add('invalid');
+                        errorElement.textContent = 'Veuillez entrer un numéro de téléphone valide';
+                        errorElement.style.display = 'block';
+                        return false;
+                    }
+                }
+                
+                // Validation spécifique pour le code postal
+                if (field.id === 'codePostal') {
+                    const cpPattern = /^[0-9]{5}$/;
+                    if (!cpPattern.test(element.value)) {
+                        element.classList.add('invalid');
+                        errorElement.textContent = 'Le code postal doit contenir 5 chiffres';
+                        errorElement.style.display = 'block';
+                        return false;
+                    }
+                }
+                
+                return true;
+            }
+        });
+    </script>
+</body>
+</html>

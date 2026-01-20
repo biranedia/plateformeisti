@@ -1,0 +1,11 @@
+json
+
+{
+"executablePath""php.validate.executablePath"
+::
+"exe""C:\\xampp\\php\\php.exe"
+,,
+"executablePath""php.executablePath"
+::
+"exe""C:\\xampp\\php\\php.exe"
+}

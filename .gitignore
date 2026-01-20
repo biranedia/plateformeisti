@@ -1,0 +1,46 @@
+# Dependencies
+vendor/
+node_modules/
+
+# Environment
+.env
+.env.local
+
+# Uploaded files
+uploads/*
+!uploads/.gitkeep
+documents/attestations/*
+!documents/attestations/.gitkeep
+documents/certificats/*
+!documents/certificats/.gitkeep
+documents/inscriptions/*
+!documents/inscriptions/.gitkeep
+agent_administratif/outputs/*
+!agent_administratif/outputs/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+*.old
+
+# Database
+*.sql.backup
+*.sql.gz
+
+# Composer
+composer.phar
+composer.lock
