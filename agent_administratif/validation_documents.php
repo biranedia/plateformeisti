@@ -390,25 +390,33 @@ if (isset($_GET['view']) && is_numeric($_GET['view'])) {
                 <?php 
                 $file_path = '../' . $document_detail['chemin_fichier'];
                 $extension = strtolower(pathinfo($file_path, PATHINFO_EXTENSION));
+                $file_exists = file_exists($file_path);
                 ?>
                 
                 <div class="bg-gray-50 rounded-lg p-6 mb-6">
                     <p class="text-sm font-medium text-gray-700 mb-4">Aperçu du document</p>
                     
-                    <?php if (in_array($extension, ['jpg', 'jpeg', 'png', 'gif'])): ?>
+                    <?php if (!$file_exists): ?>
+                        <div class="bg-red-50 border border-red-200 rounded p-4 text-center">
+                            <i class="fas fa-exclamation-circle text-red-600 text-3xl mb-2"></i>
+                            <p class="text-red-700 font-medium">Fichier non disponible</p>
+                            <p class="text-sm text-red-600 mt-1">Le fichier semble avoir été supprimé ou déplacé.</p>
+                            <p class="text-xs text-gray-500 mt-2">Chemin: <?php echo htmlspecialchars($file_path); ?></p>
+                        </div>
+                    <?php elseif (in_array($extension, ['jpg', 'jpeg', 'png', 'gif'])): ?>
                         <!-- Prévisualisation d'image -->
                         <div class="max-h-96 overflow-auto bg-white rounded border border-gray-300">
-                            <img src="../<?php echo htmlspecialchars($document_detail['chemin_fichier']); ?>" alt="Prévisualisation" class="w-full">
+                            <img src="<?php echo htmlspecialchars($file_path); ?>" alt="Prévisualisation" class="w-full">
                         </div>
                     <?php elseif ($extension === 'pdf'): ?>
                         <!-- Prévisualisation PDF -->
-                        <iframe src="../<?php echo htmlspecialchars($document_detail['chemin_fichier']); ?>#toolbar=0&navpanes=0" class="w-full border border-gray-300 rounded" style="height: 500px;"></iframe>
+                        <iframe src="<?php echo htmlspecialchars($file_path); ?>#toolbar=0&navpanes=0" class="w-full border border-gray-300 rounded" style="height: 500px;"></iframe>
                     <?php else: ?>
                         <!-- Autres types de fichiers -->
                         <div class="bg-white border border-gray-300 rounded p-8 text-center">
                             <i class="fas fa-file text-4xl text-gray-400 mb-4"></i>
                             <p class="text-gray-600 mb-4">Prévisualisation non disponible pour ce type de fichier</p>
-                            <a href="../<?php echo htmlspecialchars($document_detail['chemin_fichier']); ?>" target="_blank" class="inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+                            <a href="<?php echo htmlspecialchars($file_path); ?>" target="_blank" class="inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
                                 <i class="fas fa-download mr-2"></i>Télécharger le fichier
                             </a>
                         </div>
@@ -431,9 +439,11 @@ if (isset($_GET['view']) && is_numeric($_GET['view'])) {
                     <a href="validation_documents.php<?php echo $filtre_statut ? '?statut=' . urlencode($filtre_statut) : ''; ?>" class="text-gray-600 hover:text-gray-900">
                         <i class="fas fa-arrow-left mr-2"></i>Retour à la liste
                     </a>
-                    <a href="../<?php echo htmlspecialchars($document_detail['chemin_fichier']); ?>" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
-                        <i class="fas fa-download mr-2"></i>Télécharger
-                    </a>
+                    <?php if ($file_exists): ?>
+                        <a href="<?php echo htmlspecialchars($file_path); ?>" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+                            <i class="fas fa-download mr-2"></i>Télécharger
+                        </a>
+                    <?php endif; ?>
                 </div>
             </div>
         <?php endif; ?>
