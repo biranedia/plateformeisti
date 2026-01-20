@@ -47,12 +47,12 @@ $cours_stmt->execute();
 $cours_list = $cours_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Récupération des classes de l'enseignant
-$classes_query = "SELECT DISTINCT cl.id, cl.nom_classe, fi.nom_filiere
+$classes_query = "SELECT DISTINCT cl.id, cl.nom_classe, fi.nom as nom_filiere
                  FROM classes cl
                  JOIN filieres fi ON cl.filiere_id = fi.id
                  JOIN enseignements e ON cl.id = e.classe_id
                  WHERE e.enseignant_id = :enseignant_id
-                 ORDER BY fi.nom_filiere, cl.nom_classe";
+                 ORDER BY fi.nom, cl.nom_classe";
 $classes_stmt = $conn->prepare($classes_query);
 $classes_stmt->bindParam(':enseignant_id', $user_id);
 $classes_stmt->execute();
