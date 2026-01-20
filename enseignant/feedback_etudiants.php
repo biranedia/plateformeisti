@@ -24,14 +24,13 @@ $conn = $database->getConnection();
 $user_id = $_SESSION['user_id'];
 
 // Récupération des feedbacks pour cet enseignant
-$feedbacks_query = "SELECT f.*, c.nom_cours, u.nom as etudiant_nom, u.prenom as etudiant_prenom,
-                           cl.nom_classe, fi.nom_filiere
+$feedbacks_query = "SELECT f.*, e.matiere as nom_cours, u.name as etudiant_nom,
+                           cl.nom_classe, fi.nom as nom_filiere
                     FROM feedback_etudiants f
-                    JOIN cours c ON f.cours_id = c.id
+                    JOIN enseignements e ON f.enseignement_id = e.id
                     JOIN users u ON f.etudiant_id = u.id
-                    LEFT JOIN enseignements e ON c.id = e.cours_id
-                    LEFT JOIN classes cl ON e.classe_id = cl.id
-                    LEFT JOIN filieres fi ON cl.filiere_id = fi.id
+                    JOIN classes cl ON e.classe_id = cl.id
+                    JOIN filieres fi ON cl.filiere_id = fi.id
                     WHERE f.enseignant_id = :enseignant_id
                     ORDER BY f.date_creation DESC";
 $feedbacks_stmt = $conn->prepare($feedbacks_query);
@@ -47,9 +46,9 @@ $moyenne_enseignant = $total_feedbacks > 0 ? array_sum(array_column($feedbacks, 
 // Grouper par cours
 $feedbacks_par_cours = [];
 foreach ($feedbacks as $feedback) {
-    $cours_id = $feedback['cours_id'];
-    if (!isset($feedbacks_par_cours[$cours_id])) {
-        $feedbacks_par_cours[$cours_id] = [
+    $enseignement_id = $feedback['enseignement_id'];
+    if (!isset($feedbacks_par_cours[$enseignement_id])) {
+        $feedbacks_par_cours[$enseignement_id] = [
             'nom_cours' => $feedback['nom_cours'],
             'feedbacks' => [],
             'moyenne_cours' => 0,
@@ -57,8 +56,8 @@ foreach ($feedbacks as $feedback) {
             'total' => 0
         ];
     }
-    $feedbacks_par_cours[$cours_id]['feedbacks'][] = $feedback;
-    $feedbacks_par_cours[$cours_id]['total']++;
+    $feedbacks_par_cours[$enseignement_id]['feedbacks'][] = $feedback;
+    $feedbacks_par_cours[$enseignement_id]['total']++;
 }
 
 // Calculer les moyennes par cours
@@ -72,16 +71,15 @@ unset($cours_data);
 $cours_filter = isset($_GET['cours']) ? sanitize($_GET['cours']) : '';
 if ($cours_filter) {
     $feedbacks = array_filter($feedbacks, function($f) use ($cours_filter) {
-        return $f['cours_id'] == $cours_filter;
+        return $f['enseignement_id'] == $cours_filter;
     });
 }
 
 // Récupération des cours de l'enseignant pour le filtre
-$cours_enseignant_query = "SELECT DISTINCT c.id, c.nom_cours
-                          FROM cours c
-                          JOIN enseignements e ON c.id = e.cours_id
+$cours_enseignant_query = "SELECT DISTINCT e.id, e.matiere as nom_cours
+                          FROM enseignements e
                           WHERE e.enseignant_id = :enseignant_id
-                          ORDER BY c.nom_cours";
+                          ORDER BY e.matiere";
 $cours_enseignant_stmt = $conn->prepare($cours_enseignant_query);
 $cours_enseignant_stmt->bindParam(':enseignant_id', $user_id);
 $cours_enseignant_stmt->execute();
