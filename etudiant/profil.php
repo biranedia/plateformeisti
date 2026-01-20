@@ -108,6 +108,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $messages[] = ['type' => 'error', 'text' => $error];
             }
         }
+    } elseif ($_POST['action'] === 'upload_photo') {
+        $errors = [];
+        
+        if (!isset($_FILES['photo']) || $_FILES['photo']['error'] !== UPLOAD_ERR_OK) {
+            $errors[] = 'Veuillez sélectionner une photo.';
+        } else {
+            // Validation du type de fichier
+            $allowed_types = ['image/jpeg', 'image/png', 'image/gif'];
+            $file_mime = mime_content_type($_FILES['photo']['tmp_name']);
+            
+            if (!in_array($file_mime, $allowed_types)) {
+                $errors[] = 'Le fichier doit être une image (JPEG, PNG ou GIF).';
+            } elseif ($_FILES['photo']['size'] > 5 * 1024 * 1024) { // 5MB max
+                $errors[] = 'L\'image ne doit pas dépasser 5 MB.';
+            } else {
+                // Créer le dossier s'il n'existe pas
+                $upload_dir = '../uploads/profils/';
+                if (!is_dir($upload_dir)) {
+                    mkdir($upload_dir, 0755, true);
+                }
+                
+                // Générer un nom de fichier unique
+                $file_extension = pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION);
+                $new_filename = 'profil_' . $user_id . '_' . time() . '.' . strtolower($file_extension);
+                $upload_path = $upload_dir . $new_filename;
+                
+                // Supprimer l'ancienne photo
+                if ($user['photo_url'] && file_exists($user['photo_url'])) {
+                    unlink($user['photo_url']);
+                }
+                
+                // Uploader la nouvelle photo
+                if (move_uploaded_file($_FILES['photo']['tmp_name'], $upload_path)) {
+                    $photo_url = 'uploads/profils/' . $new_filename;
+                    
+                    // Mettre à jour la base de données
+                    try {
+                        $photo_query = "UPDATE users SET photo_url = :photo_url WHERE id = :user_id";
+                        $photo_stmt = $conn->prepare($photo_query);
+                        $photo_stmt->bindParam(':photo_url', $photo_url);
+                        $photo_stmt->bindParam(':user_id', $user_id);
+                        $photo_stmt->execute();
+                        
+                        $messages[] = ['type' => 'success', 'text' => 'Photo de profil mise à jour avec succès.'];
+                        
+                        // Recharger les informations
+                        $user_stmt->execute();
+                        $user = $user_stmt->fetch(PDO::FETCH_ASSOC);
+                    } catch (PDOException $e) {
+                        $messages[] = ['type' => 'error', 'text' => 'Erreur lors de la mise à jour: ' . $e->getMessage()];
+                    }
+                } else {
+                    $errors[] = 'Erreur lors du téléchargement de la photo.';
+                }
+            }
+        }
+        
+        if (!empty($errors)) {
+            foreach ($errors as $error) {
+                $messages[] = ['type' => 'error', 'text' => $error];
+            }
+        }
     }
 }
 ?>
@@ -293,13 +355,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 <div class="bg-white rounded-lg shadow-md p-6 mb-6">
                     <h3 class="text-lg font-medium text-gray-800 mb-4">Photo de profil</h3>
                     <div class="text-center">
-                        <div class="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <i class="fas fa-user text-blue-600 text-3xl"></i>
+                        <div class="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 overflow-hidden">
+                            <?php if ($user['photo_url'] && file_exists($user['photo_url'])): ?>
+                                <img src="../<?php echo htmlspecialchars($user['photo_url']); ?>" alt="Photo de profil" class="w-full h-full object-cover">
+                            <?php else: ?>
+                                <i class="fas fa-user text-blue-600 text-3xl"></i>
+                            <?php endif; ?>
                         </div>
-                        <p class="text-sm text-gray-600">Photo non disponible</p>
-                        <button class="mt-2 text-blue-600 hover:text-blue-800 text-sm">
-                            <i class="fas fa-camera mr-1"></i>Changer la photo
-                        </button>
+                        <p class="text-sm text-gray-600 mb-3">
+                            <?php echo $user['photo_url'] ? 'Photo définie' : 'Photo non disponible'; ?>
+                        </p>
+                        
+                        <!-- Formulaire d'upload de photo -->
+                        <form method="POST" enctype="multipart/form-data" class="space-y-2">
+                            <input type="hidden" name="action" value="upload_photo">
+                            <div class="flex items-center justify-center">
+                                <label class="cursor-pointer">
+                                    <input type="file" name="photo" accept="image/*" class="hidden" id="photo_input" required>
+                                    <span class="text-blue-600 hover:text-blue-800 text-sm">
+                                        <i class="fas fa-camera mr-1"></i>Changer la photo
+                                    </span>
+                                </label>
+                            </div>
+                            <input type="file" name="photo" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-2 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" required>
+                            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-200 text-sm">
+                                <i class="fas fa-upload mr-2"></i>Télécharger
+                            </button>
+                        </form>
                     </div>
                 </div>
 
