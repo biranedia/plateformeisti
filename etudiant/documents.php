@@ -96,7 +96,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $insert = "INSERT INTO documents_inscription (user_id, type_document, nom_fichier, chemin_fichier, type_mime, taille_fichier, statut, commentaire_validation)
                            VALUES (:user_id, 'autre', :nom_fichier, :chemin_fichier, :type_mime, :taille_fichier, 'soumis', :commentaire)";
                 $stmt_insert = $conn->prepare($insert);
-                $relative_path = str_replace(__DIR__ . '/../', '', $filepath);
+                // Chemin relatif depuis la racine du projet
+                $relative_path = 'documents/inscriptions/user_' . $user_id . '/' . $safe_filename;
                 $stmt_insert->bindParam(':user_id', $user_id);
                 $stmt_insert->bindParam(':nom_fichier', $titre ?: $file['name']);
                 $stmt_insert->bindParam(':chemin_fichier', $relative_path);
@@ -443,7 +444,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 // Utiliser un chemin absolu depuis la racine du serveur web
                 $file_path_abs = '/plateformeisti/' . $document_detail['chemin_fichier'];
                 // Et le chemin relatif pour file_exists (depuis le système de fichiers)
-                $file_path_rel = '../' . $document_detail['chemin_fichier'];
+                $file_path_rel = __DIR__ . '/../' . $document_detail['chemin_fichier'];
                 $extension = strtolower(pathinfo($file_path_rel, PATHINFO_EXTENSION));
                 $file_exists = file_exists($file_path_rel);
                 ?>

@@ -391,7 +391,7 @@ if (isset($_GET['view']) && is_numeric($_GET['view'])) {
                 // Utiliser un chemin absolu depuis la racine du serveur web
                 $file_path_abs = '/plateformeisti/' . $document_detail['chemin_fichier'];
                 // Et le chemin relatif pour file_exists (depuis le système de fichiers)
-                $file_path_rel = '../' . $document_detail['chemin_fichier'];
+                $file_path_rel = __DIR__ . '/../' . $document_detail['chemin_fichier'];
                 $extension = strtolower(pathinfo($file_path_rel, PATHINFO_EXTENSION));
                 $file_exists = file_exists($file_path_rel);
                 ?>
