@@ -32,7 +32,7 @@ $cours_today_query = "SELECT e.id, e.matiere as nom_cours, cl.nom_classe, fi.nom
                       JOIN classes cl ON e.classe_id = cl.id
                       JOIN filieres fi ON cl.filiere_id = fi.id
                       LEFT JOIN emplois_du_temps edt ON e.enseignant_id = edt.enseignant_id 
-                           AND edt.matiere = e.matiere AND edt.jour_semaine = :jour_semaine
+                           AND edt.matiere_nom = e.matiere AND edt.jour_semaine = :jour_semaine
                       WHERE e.enseignant_id = :enseignant_id
                       ORDER BY edt.heure_debut";
 $cours_today_stmt = $conn->prepare($cours_today_query);
@@ -47,7 +47,7 @@ $cours_passes_query = "SELECT DISTINCT e.id, e.matiere as nom_cours, cl.nom_clas
                        FROM enseignements e
                        JOIN classes cl ON e.classe_id = cl.id
                        JOIN filieres fi ON cl.filiere_id = fi.id
-                       LEFT JOIN emplois_du_temps edt ON e.enseignant_id = edt.enseignant_id AND edt.matiere = e.matiere
+                       LEFT JOIN emplois_du_temps edt ON e.enseignant_id = edt.enseignant_id AND edt.matiere_nom = e.matiere
                        JOIN presence p ON e.id = p.enseignement_id
                        WHERE e.enseignant_id = :enseignant_id
                        AND p.date_cours < :today
@@ -92,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             FROM enseignements e
                             JOIN classes cl ON e.classe_id = cl.id
                             JOIN filieres fi ON cl.filiere_id = fi.id
-                            LEFT JOIN emplois_du_temps edt ON e.enseignant_id = edt.enseignant_id AND edt.matiere = e.matiere
+                            LEFT JOIN emplois_du_temps edt ON e.enseignant_id = edt.enseignant_id AND edt.matiere_nom = e.matiere
                             WHERE e.id = :cours_id AND e.enseignant_id = :enseignant_id
                             LIMIT 1";
         $cours_info_stmt = $conn->prepare($cours_info_query);
