@@ -450,17 +450,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     <?php if (in_array($extension, ['jpg', 'jpeg', 'png', 'gif'])): ?>
                         <!-- Prévisualisation d'image -->
                         <div class="max-h-96 overflow-auto bg-white rounded border border-gray-300">
-                            <img src="/plateformeisti/<?php echo htmlspecialchars($document_detail['chemin_fichier']); ?>" alt="Prévisualisation" class="w-full">
+                            <img src="../<?php echo htmlspecialchars($document_detail['chemin_fichier']); ?>" alt="Prévisualisation" class="w-full">
                         </div>
                     <?php elseif ($extension === 'pdf'): ?>
                         <!-- Prévisualisation PDF -->
-                        <iframe src="/plateformeisti/<?php echo htmlspecialchars($document_detail['chemin_fichier']); ?>#toolbar=0&navpanes=0" class="w-full border border-gray-300 rounded" style="height: 500px;"></iframe>
+                        <iframe src="../<?php echo htmlspecialchars($document_detail['chemin_fichier']); ?>#toolbar=0&navpanes=0" class="w-full border border-gray-300 rounded" style="height: 500px;"></iframe>
                     <?php else: ?>
                         <!-- Autres types de fichiers -->
                         <div class="bg-white border border-gray-300 rounded p-8 text-center">
                             <i class="fas fa-file text-4xl text-gray-400 mb-4"></i>
                             <p class="text-gray-600 mb-4">Prévisualisation non disponible pour ce type de fichier</p>
-                            <a href="/plateformeisti/<?php echo htmlspecialchars($document_detail['chemin_fichier']); ?>" target="_blank" class="inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+                            <a href="../<?php echo htmlspecialchars($document_detail['chemin_fichier']); ?>" target="_blank" class="inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
                                 <i class="fas fa-download mr-2"></i>Télécharger le fichier
                             </a>
                         </div>
@@ -471,7 +471,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     <a href="documents.php" class="text-gray-600 hover:text-gray-900">
                         <i class="fas fa-arrow-left mr-2"></i>Retour à la liste
                     </a>
-                    <a href="/plateformeisti/<?php echo htmlspecialchars($document_detail['chemin_fichier']); ?>" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+                    <a href="../<?php echo htmlspecialchars($document_detail['chemin_fichier']); ?>" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
                         <i class="fas fa-download mr-2"></i>Télécharger le fichier original
                     </a>
                 </div>
