@@ -50,14 +50,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
     if ($action === 'add_cours') {
         $classe_id = (int)$_POST['classe_id'];
-        $enseignement_id = (int)$_POST['enseignement_id'];
+        $enseignement_id = isset($_POST['enseignement_id']) ? (int)$_POST['enseignement_id'] : 0;
         $jour_semaine = (int)$_POST['jour_semaine'];
         $creneau = sanitize($_POST['creneau']);
         $salle = sanitize($_POST['salle']);
         $annee_academique = sanitize($_POST['annee_academique']);
+        $new_matiere = trim($_POST['new_matiere'] ?? '');
+        $new_enseignant_id = isset($_POST['enseignant_id']) ? (int)$_POST['enseignant_id'] : 0;
+
+        // Si aucune matière sélectionnée mais saisie libre fournie, créer un enseignement à la volée
+        if (!$enseignement_id && $new_matiere !== '' && $new_enseignant_id > 0) {
+            $insert_ens = $conn->prepare("INSERT INTO enseignements (enseignant_id, classe_id, matiere, volume_horaire)
+                                          VALUES (:ens_id, :classe_id, :matiere, :vh)");
+            $insert_ens->execute([
+                ':ens_id' => $new_enseignant_id,
+                ':classe_id' => $classe_id,
+                ':matiere' => $new_matiere,
+                ':vh' => 30
+            ]);
+            $enseignement_id = (int)$conn->lastInsertId();
+        }
 
         // Vérifier que l'enseignement appartient à la classe et à la filière
-        $check_query = "SELECT e.id, e.matiere, u.name as enseignant_nom
+        $check_query = "SELECT e.id, e.matiere, u.name as enseignant_nom, e.enseignant_id
                        FROM enseignements e
                        JOIN classes c ON e.classe_id = c.id
                        JOIN users u ON e.enseignant_id = u.id
@@ -71,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $enseignement = $check_stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$enseignement) {
-            $message = "Enseignement non trouvé ou non autorisé.";
+            $message = "Enseignement non trouvé ou non autorisé. Ajoutez une matière ou sélectionnez un enseignant.";
             $message_type = "error";
         } else {
             // Vérifier les conflits
@@ -98,10 +113,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $message_type = "error";
             } else {
                 // Récupérer l'enseignant_id depuis enseignements
-                $ens_info = $conn->prepare("SELECT enseignant_id FROM enseignements WHERE id = :id");
-                $ens_info->execute([':id' => $enseignement_id]);
-                $enseignant_id = $ens_info->fetch()['enseignant_id'];
-                
+                $enseignant_id = (int)$enseignement['enseignant_id'];
+
                 // Insérer le cours
                 $insert_query = "INSERT INTO emplois_du_temps 
                                 (classe_id, enseignant_id, matiere_nom, jour_semaine, creneau_horaire, salle, annee_academique, heure_debut, heure_fin)
@@ -171,6 +184,13 @@ if ($classe_filter) {
     $ens_stmt->execute([':classe_id' => $classe_filter]);
     $enseignements = $ens_stmt->fetchAll(PDO::FETCH_ASSOC);
 }
+
+// Liste des enseignants (pour créer un enseignement à la volée)
+$enseignants_filiere = [];
+$ens_filiere_query = "SELECT id, name FROM users WHERE role = 'enseignant' ORDER BY name";
+$ens_filiere_stmt = $conn->prepare($ens_filiere_query);
+$ens_filiere_stmt->execute();
+$enseignants_filiere = $ens_filiere_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Récupération de l'emploi du temps
 $emploi_du_temps = [];
@@ -364,16 +384,35 @@ if ($classe_filter) {
                         <input type="hidden" name="annee_academique" value="<?php echo htmlspecialchars($annee_filter); ?>">
 
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Matière *</label>
-                            <select name="enseignement_id" required
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Matière (existante)</label>
+                            <select name="enseignement_id"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500">
-                                <option value="">Sélectionner une matière</option>
+                                <option value="">Sélectionner une matière existante</option>
                                 <?php foreach ($enseignements as $ens): ?>
                                     <option value="<?php echo $ens['id']; ?>">
                                         <?php echo htmlspecialchars($ens['matiere']); ?> - <?php echo htmlspecialchars($ens['enseignant_nom']); ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
+                            <p class="text-xs text-gray-500 mt-1">Ou créez une nouvelle matière ci-dessous.</p>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Nouvelle matière (optionnel)</label>
+                            <input type="text" name="new_matiere" placeholder="Ex: Mathématiques" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500">
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Enseignant (pour nouvelle matière)</label>
+                            <select name="enseignant_id"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500">
+                                <option value="">Sélectionner un enseignant</option>
+                                <?php foreach ($enseignants_filiere as $ensf): ?>
+                                    <option value="<?php echo $ensf['id']; ?>"><?php echo htmlspecialchars($ensf['name']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">Obligatoire seulement si vous créez une nouvelle matière.</p>
                         </div>
 
                         <div class="mb-4">
