@@ -82,8 +82,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }
 
         if (empty($errors)) {
-            // Répertoire de stockage
-            $user_dir = __DIR__ . '/../documents/inscriptions/user_' . $user_id;
+            // Répertoire de stockage (dans le projet)
+            $base_dir = dirname(__DIR__); // C:\xampp\htdocs\plateformeisti
+            $user_dir = $base_dir . '/documents/inscriptions/user_' . $user_id;
             if (!is_dir($user_dir)) {
                 mkdir($user_dir, 0777, true);
             }
@@ -444,7 +445,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 // Utiliser un chemin absolu depuis la racine du serveur web
                 $file_path_abs = '/plateformeisti/' . $document_detail['chemin_fichier'];
                 // Et le chemin relatif pour file_exists (depuis le système de fichiers)
-                $file_path_rel = __DIR__ . '/../' . $document_detail['chemin_fichier'];
+                $base_dir = dirname(__DIR__); // C:\xampp\htdocs\plateformeisti
+                $file_path_rel = $base_dir . '/' . $document_detail['chemin_fichier'];
                 $extension = strtolower(pathinfo($file_path_rel, PATHINFO_EXTENSION));
                 $file_exists = file_exists($file_path_rel);
                 ?>
