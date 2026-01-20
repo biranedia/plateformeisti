@@ -113,6 +113,17 @@ if ($filtre_type) {
 }
 $documents_stmt->execute();
 $documents = $documents_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Récupération d'un document spécifique pour la prévisualisation
+$document_detail = null;
+if (isset($_GET['view']) && is_numeric($_GET['view'])) {
+    $doc_id = intval($_GET['view']);
+    $detail_query = "SELECT di.*, u.name, u.email, u.phone FROM documents_inscription di JOIN users u ON di.user_id = u.id WHERE di.id = :id";
+    $detail_stmt = $conn->prepare($detail_query);
+    $detail_stmt->bindParam(':id', $doc_id);
+    $detail_stmt->execute();
+    $document_detail = $detail_stmt->fetch(PDO::FETCH_ASSOC);
+}
 ?>
 
 <!DOCTYPE html>
@@ -270,8 +281,8 @@ $documents = $documents_stmt->fetchAll(PDO::FETCH_ASSOC);
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                                    <a href="<?php echo htmlspecialchars($doc['chemin_fichier']); ?>" target="_blank" class="text-blue-600 hover:text-blue-900" title="Télécharger">
-                                        <i class="fas fa-download"></i> Voir
+                                    <a href="?view=<?php echo $doc['id']; ?>" class="text-blue-600 hover:text-blue-900" title="Prévisualiser">
+                                        <i class="fas fa-eye"></i> Voir
                                     </a>
                                     <?php if ($doc['statut'] === 'soumis'): ?>
                                         <button onclick="openValidationModal(<?php echo $doc['id']; ?>, 'valider')" class="text-green-600 hover:text-green-900">
@@ -288,6 +299,144 @@ $documents = $documents_stmt->fetchAll(PDO::FETCH_ASSOC);
                 </tbody>
             </table>
         </div>
+
+        <!-- Détail du document (Prévisualisation) -->
+        <?php if ($document_detail): ?>
+            <div class="mt-8 bg-white rounded-lg shadow p-6 border-l-4 border-indigo-500">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-gray-800">
+                        <i class="fas fa-file mr-2"></i>Détails du document
+                    </h2>
+                    <a href="validation_documents.php<?php echo $filtre_statut ? '?statut=' . urlencode($filtre_statut) : ''; ?>" class="text-gray-600 hover:text-gray-900">
+                        <i class="fas fa-times text-lg"></i>
+                    </a>
+                </div>
+
+                <div class="grid grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <p class="text-sm text-gray-600 font-medium">Étudiant</p>
+                        <p class="mt-1 text-lg text-gray-900"><?php echo htmlspecialchars($document_detail['name']); ?></p>
+                        <p class="text-xs text-gray-500"><?php echo htmlspecialchars($document_detail['email']); ?></p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600 font-medium">Téléphone</p>
+                        <p class="mt-1 text-lg text-gray-900"><?php echo htmlspecialchars($document_detail['phone'] ?? 'Non fourni'); ?></p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600 font-medium">Type de document</p>
+                        <p class="mt-1 text-lg text-gray-900"><?php echo htmlspecialchars($document_detail['type_document']); ?></p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600 font-medium">Nom du fichier</p>
+                        <p class="mt-1 text-lg text-gray-900"><?php echo htmlspecialchars($document_detail['nom_fichier']); ?></p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600 font-medium">Date d'upload</p>
+                        <p class="mt-1 text-lg text-gray-900"><?php echo date('d/m/Y à H:i', strtotime($document_detail['date_upload'])); ?></p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600 font-medium">Taille du fichier</p>
+                        <p class="mt-1 text-lg text-gray-900"><?php echo number_format($document_detail['taille_fichier'] / 1024, 2); ?> KB</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600 font-medium">Statut</p>
+                        <div class="mt-1">
+                            <?php 
+                            $status_classes = [
+                                'soumis' => 'bg-yellow-100 text-yellow-800',
+                                'valide' => 'bg-green-100 text-green-800',
+                                'rejete' => 'bg-red-100 text-red-800'
+                            ];
+                            $status_labels = [
+                                'soumis' => 'En attente de validation',
+                                'valide' => 'Validé ✓',
+                                'rejete' => 'Rejeté ✗'
+                            ];
+                            $status_icons = [
+                                'soumis' => 'fas fa-hourglass-end',
+                                'valide' => 'fas fa-check-circle',
+                                'rejete' => 'fas fa-times-circle'
+                            ];
+                            $class = $status_classes[$document_detail['statut']] ?? 'bg-gray-100 text-gray-800';
+                            $label = $status_labels[$document_detail['statut']] ?? $document_detail['statut'];
+                            $icon = $status_icons[$document_detail['statut']] ?? 'fas fa-question';
+                            ?>
+                            <span class="px-3 py-1 rounded-full text-sm font-medium inline-flex items-center <?php echo $class; ?>">
+                                <i class="<?php echo $icon; ?> mr-2"></i>
+                                <?php echo $label; ?>
+                            </span>
+                        </div>
+                    </div>
+                    <?php if ($document_detail['date_validation']): ?>
+                        <div>
+                            <p class="text-sm text-gray-600 font-medium">Date de validation</p>
+                            <p class="mt-1 text-lg text-gray-900"><?php echo date('d/m/Y à H:i', strtotime($document_detail['date_validation'])); ?></p>
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+                <?php if ($document_detail['commentaire_validation']): ?>
+                    <div class="mb-6 p-4 rounded-lg <?php echo $document_detail['statut'] === 'valide' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'; ?>">
+                        <p class="text-sm font-medium <?php echo $document_detail['statut'] === 'valide' ? 'text-green-800' : 'text-red-800'; ?>">
+                            <?php echo $document_detail['statut'] === 'valide' ? 'Commentaire de validation' : 'Raison du rejet'; ?>
+                        </p>
+                        <p class="text-sm mt-2 <?php echo $document_detail['statut'] === 'valide' ? 'text-green-700' : 'text-red-700'; ?>">
+                            <?php echo nl2br(htmlspecialchars($document_detail['commentaire_validation'])); ?>
+                        </p>
+                    </div>
+                <?php endif; ?>
+
+                <!-- Prévisualisation du fichier -->
+                <?php 
+                $file_path = '../' . $document_detail['chemin_fichier'];
+                $extension = strtolower(pathinfo($file_path, PATHINFO_EXTENSION));
+                ?>
+                
+                <div class="bg-gray-50 rounded-lg p-6 mb-6">
+                    <p class="text-sm font-medium text-gray-700 mb-4">Aperçu du document</p>
+                    
+                    <?php if (in_array($extension, ['jpg', 'jpeg', 'png', 'gif'])): ?>
+                        <!-- Prévisualisation d'image -->
+                        <div class="max-h-96 overflow-auto bg-white rounded border border-gray-300">
+                            <img src="/../<?php echo htmlspecialchars($document_detail['chemin_fichier']); ?>" alt="Prévisualisation" class="w-full">
+                        </div>
+                    <?php elseif ($extension === 'pdf'): ?>
+                        <!-- Prévisualisation PDF -->
+                        <iframe src="/../<?php echo htmlspecialchars($document_detail['chemin_fichier']); ?>#toolbar=0&navpanes=0" class="w-full border border-gray-300 rounded" style="height: 500px;"></iframe>
+                    <?php else: ?>
+                        <!-- Autres types de fichiers -->
+                        <div class="bg-white border border-gray-300 rounded p-8 text-center">
+                            <i class="fas fa-file text-4xl text-gray-400 mb-4"></i>
+                            <p class="text-gray-600 mb-4">Prévisualisation non disponible pour ce type de fichier</p>
+                            <a href="/../<?php echo htmlspecialchars($document_detail['chemin_fichier']); ?>" target="_blank" class="inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+                                <i class="fas fa-download mr-2"></i>Télécharger le fichier
+                            </a>
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+                <!-- Actions -->
+                <?php if ($document_detail['statut'] === 'soumis'): ?>
+                    <div class="flex gap-3">
+                        <button onclick="openValidationModal(<?php echo $document_detail['id']; ?>, 'valider')" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium transition">
+                            <i class="fas fa-check mr-2"></i>Valider ce document
+                        </button>
+                        <button onclick="openValidationModal(<?php echo $document_detail['id']; ?>, 'rejeter')" class="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md font-medium transition">
+                            <i class="fas fa-times mr-2"></i>Rejeter ce document
+                        </button>
+                    </div>
+                <?php endif; ?>
+
+                <div class="mt-4 flex justify-between">
+                    <a href="validation_documents.php<?php echo $filtre_statut ? '?statut=' . urlencode($filtre_statut) : ''; ?>" class="text-gray-600 hover:text-gray-900">
+                        <i class="fas fa-arrow-left mr-2"></i>Retour à la liste
+                    </a>
+                    <a href="/../<?php echo htmlspecialchars($document_detail['chemin_fichier']); ?>" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+                        <i class="fas fa-download mr-2"></i>Télécharger
+                    </a>
+                </div>
+            </div>
+        <?php endif; ?>
     </main>
 
     <!-- Modal de Validation -->
