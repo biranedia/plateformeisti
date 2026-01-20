@@ -43,7 +43,7 @@ $enseignements = $enseignements_stmt->fetchAll(PDO::FETCH_ASSOC);
 // Récupération de l'emploi du temps
 $edt_query = "SELECT e.* FROM emplois_du_temps e
               WHERE e.enseignant_id = :user_id
-              ORDER BY e.jour, e.heure_debut";
+              ORDER BY e.jour_semaine, e.heure_debut";
 $edt_stmt = $conn->prepare($edt_query);
 $edt_stmt->bindParam(':user_id', $user_id);
 $edt_stmt->execute();
