@@ -23,25 +23,24 @@ $conn = $database->getConnection();
 // Récupération des informations de l'utilisateur
 $user_id = $_SESSION['user_id'];
 
-// Récupération des ressources de l'enseignant
-$ressources_query = "SELECT r.*, c.nom_cours, cl.nom_classe, fi.nom_filiere
-                    FROM ressources r
-                    LEFT JOIN cours c ON r.cours_id = c.id
-                    LEFT JOIN classes cl ON r.classe_id = cl.id
-                    LEFT JOIN filieres fi ON cl.filiere_id = fi.id
-                    WHERE r.enseignant_id = :enseignant_id
-                    ORDER BY r.date_creation DESC";
+// Récupération des ressources de l'enseignant (fichiers pédagogiques)
+$ressources_query = "SELECT fp.*, e.matiere as nom_cours, cl.nom_classe, fi.nom as nom_filiere
+                    FROM fichiers_pedagogiques fp
+                    JOIN enseignements e ON fp.enseignement_id = e.id
+                    JOIN classes cl ON e.classe_id = cl.id
+                    JOIN filieres fi ON cl.filiere_id = fi.id
+                    WHERE e.enseignant_id = :enseignant_id
+                    ORDER BY fp.date_upload DESC";
 $ressources_stmt = $conn->prepare($ressources_query);
 $ressources_stmt->bindParam(':enseignant_id', $user_id);
 $ressources_stmt->execute();
 $ressources = $ressources_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Récupération des cours de l'enseignant pour le formulaire
-$cours_query = "SELECT DISTINCT c.id, c.nom_cours
-               FROM cours c
-               JOIN enseignements e ON c.id = e.cours_id
+// Récupération des enseignements (matières) de l'enseignant pour le formulaire
+$cours_query = "SELECT DISTINCT e.id, e.matiere as nom_cours
+               FROM enseignements e
                WHERE e.enseignant_id = :enseignant_id
-               ORDER BY c.nom_cours";
+               ORDER BY e.matiere";
 $cours_stmt = $conn->prepare($cours_query);
 $cours_stmt->bindParam(':enseignant_id', $user_id);
 $cours_stmt->execute();
@@ -76,15 +75,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $titre = sanitize($_POST['titre']);
         $description = sanitize($_POST['description']);
         $type_ressource = sanitize($_POST['type_ressource']);
-        $cours_id = !empty($_POST['cours_id']) ? sanitize($_POST['cours_id']) : null;
+        $enseignement_id = !empty($_POST['cours_id']) ? sanitize($_POST['cours_id']) : null;
         $classe_id = !empty($_POST['classe_id']) ? sanitize($_POST['classe_id']) : null;
         $visibilite = sanitize($_POST['visibilite']); // 'public', 'classe', 'prive'
 
         // Validation
         $errors = [];
         if (empty($titre)) $errors[] = 'Le titre est obligatoire.';
-        if (!array_key_exists($type_ressource, $types_ressources)) $errors[] = 'Type de ressource invalide.';
-        if ($visibilite === 'classe' && empty($classe_id)) $errors[] = 'Une classe doit être sélectionnée pour la visibilité "Classe".';
+        if (empty($enseignement_id)) $errors[] = 'Une matière/cours doit être sélectionné(e).';
 
         // Gestion du fichier
         $fichier_url = null;
@@ -117,19 +115,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         if (empty($errors)) {
             try {
-                $insert_query = "INSERT INTO ressources (titre, description, type_ressource, fichier_url,
-                               cours_id, classe_id, enseignant_id, visibilite, date_creation)
-                               VALUES (:titre, :description, :type_ressource, :fichier_url,
-                               :cours_id, :classe_id, :enseignant_id, :visibilite, NOW())";
+                $insert_query = "INSERT INTO fichiers_pedagogiques (titre, fichier_url, enseignement_id)
+                               VALUES (:titre, :fichier_url, :enseignement_id)";
                 $insert_stmt = $conn->prepare($insert_query);
                 $insert_stmt->bindParam(':titre', $titre);
-                $insert_stmt->bindParam(':description', $description);
-                $insert_stmt->bindParam(':type_ressource', $type_ressource);
                 $insert_stmt->bindParam(':fichier_url', $fichier_url);
-                $insert_stmt->bindParam(':cours_id', $cours_id);
-                $insert_stmt->bindParam(':classe_id', $classe_id);
-                $insert_stmt->bindParam(':enseignant_id', $user_id);
-                $insert_stmt->bindParam(':visibilite', $visibilite);
+                $insert_stmt->bindParam(':enseignement_id', $enseignement_id);
                 $insert_stmt->execute();
 
                 $messages[] = ['type' => 'success', 'text' => 'Ressource ajoutée avec succès !'];
@@ -151,7 +142,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         try {
             // Récupérer l'URL du fichier avant suppression
-            $select_query = "SELECT fichier_url FROM ressources WHERE id = :id AND enseignant_id = :enseignant_id";
+            $select_query = "SELECT fp.fichier_url FROM fichiers_pedagogiques fp
+                            JOIN enseignements e ON fp.enseignement_id = e.id
+                            WHERE fp.id = :id AND e.enseignant_id = :enseignant_id";
             $select_stmt = $conn->prepare($select_query);
             $select_stmt->bindParam(':id', $ressource_id);
             $select_stmt->bindParam(':enseignant_id', $user_id);
@@ -168,7 +161,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 }
 
                 // Supprimer de la base de données
-                $delete_query = "DELETE FROM ressources WHERE id = :id AND enseignant_id = :enseignant_id";
+                $delete_query = "DELETE fp FROM fichiers_pedagogiques fp
+                                JOIN enseignements e ON fp.enseignement_id = e.id
+                                WHERE fp.id = :id AND e.enseignant_id = :enseignant_id";
                 $delete_stmt = $conn->prepare($delete_query);
                 $delete_stmt->bindParam(':id', $ressource_id);
                 $delete_stmt->bindParam(':enseignant_id', $user_id);
@@ -190,16 +185,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 }
 
 // Statistiques des ressources
-$stats_query = "SELECT type_ressource, COUNT(*) as count FROM ressources WHERE enseignant_id = :enseignant_id GROUP BY type_ressource";
+$stats_query = "SELECT COUNT(*) as total FROM fichiers_pedagogiques fp
+                JOIN enseignements e ON fp.enseignement_id = e.id
+                WHERE e.enseignant_id = :enseignant_id";
 $stats_stmt = $conn->prepare($stats_query);
 $stats_stmt->bindParam(':enseignant_id', $user_id);
 $stats_stmt->execute();
-$stats = $stats_stmt->fetchAll(PDO::FETCH_ASSOC);
-
-$stats_by_type = [];
-foreach ($stats as $stat) {
-    $stats_by_type[$stat['type_ressource']] = $stat['count'];
-}
+$stats_total = $stats_stmt->fetch(PDO::FETCH_ASSOC);
 ?>
 
 <!DOCTYPE html>
