@@ -25,31 +25,33 @@ $user_id = $_SESSION['user_id'];
 
 // Récupération des cours de l'enseignant pour aujourd'hui
 $today = date('Y-m-d');
-$cours_today_query = "SELECT c.id, c.nom_cours, cl.nom_classe, fi.nom,
-                             e.heure_debut, e.heure_fin, e.salle
-                      FROM cours c
-                      JOIN enseignements e ON c.id = e.cours_id
+$jour_semaine = date('N'); // 1=Lundi, 7=Dimanche
+$cours_today_query = "SELECT e.id, e.matiere as nom_cours, cl.nom_classe, fi.nom,
+                             edt.heure_debut, edt.heure_fin, edt.salle
+                      FROM enseignements e
                       JOIN classes cl ON e.classe_id = cl.id
                       JOIN filieres fi ON cl.filiere_id = fi.id
+                      LEFT JOIN emplois_du_temps edt ON e.enseignant_id = edt.enseignant_id 
+                           AND edt.matiere = e.matiere AND edt.jour_semaine = :jour_semaine
                       WHERE e.enseignant_id = :enseignant_id
-                      AND DATE(e.date_cours) = :today
-                      ORDER BY e.heure_debut";
+                      ORDER BY edt.heure_debut";
 $cours_today_stmt = $conn->prepare($cours_today_query);
 $cours_today_stmt->bindParam(':enseignant_id', $user_id);
-$cours_today_stmt->bindParam(':today', $today);
+$cours_today_stmt->bindParam(':jour_semaine', $jour_semaine);
 $cours_today_stmt->execute();
 $cours_today = $cours_today_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Récupération des cours passés pour consultation
-$cours_passes_query = "SELECT DISTINCT c.id, c.nom_cours, cl.nom_classe, fi.nom,
-                              DATE(e.date_cours) as date_cours, e.heure_debut, e.heure_fin
-                       FROM cours c
-                       JOIN enseignements e ON c.id = e.cours_id
+// Récupération des cours passés pour consultation (dernières séances de présence)
+$cours_passes_query = "SELECT DISTINCT e.id, e.matiere as nom_cours, cl.nom_classe, fi.nom,
+                              p.date_cours, edt.heure_debut, edt.heure_fin
+                       FROM enseignements e
                        JOIN classes cl ON e.classe_id = cl.id
                        JOIN filieres fi ON cl.filiere_id = fi.id
+                       LEFT JOIN emplois_du_temps edt ON e.enseignant_id = edt.enseignant_id AND edt.matiere = e.matiere
+                       JOIN presence p ON e.id = p.enseignement_id
                        WHERE e.enseignant_id = :enseignant_id
-                       AND DATE(e.date_cours) < :today
-                       ORDER BY e.date_cours DESC, e.heure_debut DESC
+                       AND p.date_cours < :today
+                       ORDER BY p.date_cours DESC, edt.heure_debut DESC
                        LIMIT 10";
 $cours_passes_stmt = $conn->prepare($cours_passes_query);
 $cours_passes_stmt->bindParam(':enseignant_id', $user_id);
@@ -67,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $cours_id = sanitize($_POST['cours_id']);
         $date_cours = sanitize($_POST['date_cours']);
 
-        // Récupération des étudiants inscrits à ce cours
+        // Récupération des étudiants inscrits à ce cours (enseignement)
         $etudiants_query = "SELECT u.id, u.name, u.matricule,
                                    CASE WHEN p.present = 1 THEN 'present'
                                         WHEN p.present = 0 THEN 'absent'
@@ -75,8 +77,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             FROM users u
                             JOIN inscriptions i ON u.id = i.etudiant_id
                             JOIN enseignements e ON i.classe_id = e.classe_id
-                            LEFT JOIN presence p ON u.id = p.etudiant_id AND p.cours_id = e.cours_id AND DATE(p.date_cours) = :date_cours
-                            WHERE e.cours_id = :cours_id AND e.enseignant_id = :enseignant_id AND i.statut = 'active'
+                            LEFT JOIN presence p ON u.id = p.etudiant_id AND p.enseignement_id = e.id AND DATE(p.date_cours) = :date_cours
+                            WHERE e.id = :cours_id AND e.enseignant_id = :enseignant_id AND i.statut = 'active'
                             ORDER BY u.name";
         $etudiants_stmt = $conn->prepare($etudiants_query);
         $etudiants_stmt->bindParam(':cours_id', $cours_id);
@@ -85,13 +87,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $etudiants_stmt->execute();
         $etudiants = $etudiants_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Récupération des infos du cours sélectionné
-        $cours_info_query = "SELECT c.nom_cours, cl.nom_classe, fi.nom, e.heure_debut, e.heure_fin, e.salle
-                            FROM cours c
-                            JOIN enseignements e ON c.id = e.cours_id
+        // Récupération des infos du cours sélectionné (enseignement)
+        $cours_info_query = "SELECT e.matiere as nom_cours, cl.nom_classe, fi.nom, edt.heure_debut, edt.heure_fin, edt.salle
+                            FROM enseignements e
                             JOIN classes cl ON e.classe_id = cl.id
                             JOIN filieres fi ON cl.filiere_id = fi.id
-                            WHERE c.id = :cours_id AND e.enseignant_id = :enseignant_id
+                            LEFT JOIN emplois_du_temps edt ON e.enseignant_id = edt.enseignant_id AND edt.matiere = e.matiere
+                            WHERE e.id = :cours_id AND e.enseignant_id = :enseignant_id
                             LIMIT 1";
         $cours_info_stmt = $conn->prepare($cours_info_query);
         $cours_info_stmt->bindParam(':cours_id', $cours_id);
@@ -105,16 +107,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $presences = $_POST['presence'] ?? [];
 
         try {
-            // Supprimer les présences existantes pour ce cours et cette date
-            $delete_query = "DELETE FROM presence WHERE cours_id = :cours_id AND DATE(date_cours) = :date_cours";
+            // Supprimer les présences existantes pour cet enseignement et cette date
+            $delete_query = "DELETE FROM presence WHERE enseignement_id = :enseignement_id AND DATE(date_cours) = :date_cours";
             $delete_stmt = $conn->prepare($delete_query);
-            $delete_stmt->bindParam(':cours_id', $cours_id);
+            $delete_stmt->bindParam(':enseignement_id', $cours_id);
             $delete_stmt->bindParam(':date_cours', $date_cours);
             $delete_stmt->execute();
 
             // Insérer les nouvelles présences
-            $insert_query = "INSERT INTO presence (etudiant_id, cours_id, date_cours, present, enseignant_id)
-                           VALUES (:etudiant_id, :cours_id, :date_cours, :present, :enseignant_id)";
+            $insert_query = "INSERT INTO presence (etudiant_id, enseignement_id, date_cours, present, enseignant_id)
+                           VALUES (:etudiant_id, :enseignement_id, :date_cours, :present, :enseignant_id)";
             $insert_stmt = $conn->prepare($insert_query);
 
             $total_etudiants = 0;
@@ -126,7 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 if ($present) $presents++;
 
                 $insert_stmt->bindParam(':etudiant_id', $etudiant_id);
-                $insert_stmt->bindParam(':cours_id', $cours_id);
+                $insert_stmt->bindParam(':enseignement_id', $cours_id);
                 $insert_stmt->bindParam(':date_cours', $date_cours);
                 $insert_stmt->bindParam(':present', $present);
                 $insert_stmt->bindParam(':enseignant_id', $user_id);
@@ -143,8 +145,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                 FROM users u
                                 JOIN inscriptions i ON u.id = i.etudiant_id
                                 JOIN enseignements e ON i.classe_id = e.classe_id
-                                LEFT JOIN presence p ON u.id = p.etudiant_id AND p.cours_id = e.cours_id AND DATE(p.date_cours) = :date_cours
-                                WHERE e.cours_id = :cours_id AND e.enseignant_id = :enseignant_id AND i.statut = 'active'
+                                LEFT JOIN presence p ON u.id = p.etudiant_id AND p.enseignement_id = e.id AND DATE(p.date_cours) = :date_cours
+                                WHERE e.id = :cours_id AND e.enseignant_id = :enseignant_id AND i.statut = 'active'
                                 ORDER BY u.name";
             $etudiants_stmt = $conn->prepare($etudiants_query);
             $etudiants_stmt->bindParam(':cours_id', $cours_id);
