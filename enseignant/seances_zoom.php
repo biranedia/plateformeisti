@@ -24,7 +24,7 @@ $conn = $database->getConnection();
 $user_id = $_SESSION['user_id'];
 
 // Récupération des séances Zoom de l'enseignant
-$seances_query = "SELECT sz.*, cl.nom_classe, fi.nom_filiere, c.nom_cours,
+$seances_query = "SELECT sz.*, cl.nom_classe, fi.nom AS filiere_nom, c.nom_cours,
                          COUNT(DISTINCT uv.user_id) as vues_count
                   FROM seances_zoom sz
                   LEFT JOIN classes cl ON sz.classe_id = cl.id
@@ -39,24 +39,23 @@ $seances_stmt->bindParam(':enseignant_id', $user_id);
 $seances_stmt->execute();
 $seances = $seances_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Récupération des cours de l'enseignant
-$cours_query = "SELECT DISTINCT c.id, c.nom_cours
-               FROM cours c
-               JOIN enseignements e ON c.id = e.cours_id
+// Récupération des cours/matières de l'enseignant (depuis enseignements)
+$cours_query = "SELECT DISTINCT e.id AS id, e.matiere AS nom_cours
+               FROM enseignements e
                WHERE e.enseignant_id = :enseignant_id
-               ORDER BY c.nom_cours";
+               ORDER BY e.matiere";
 $cours_stmt = $conn->prepare($cours_query);
 $cours_stmt->bindParam(':enseignant_id', $user_id);
 $cours_stmt->execute();
 $cours_list = $cours_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Récupération des classes de l'enseignant
-$classes_query = "SELECT DISTINCT cl.id, cl.nom_classe, fi.nom_filiere
+$classes_query = "SELECT DISTINCT cl.id, cl.nom_classe, fi.nom AS filiere_nom
                  FROM classes cl
                  JOIN filieres fi ON cl.filiere_id = fi.id
                  JOIN enseignements e ON cl.id = e.classe_id
                  WHERE e.enseignant_id = :enseignant_id
-                 ORDER BY fi.nom_filiere, cl.nom_classe";
+                 ORDER BY fi.nom, cl.nom_classe";
 $classes_stmt = $conn->prepare($classes_query);
 $classes_stmt->bindParam(':enseignant_id', $user_id);
 $classes_stmt->execute();

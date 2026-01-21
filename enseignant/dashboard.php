@@ -117,6 +117,9 @@ $total_ressources = count($ressources);
                 <a href="emploi_du_temps.php" class="text-gray-600 hover:text-green-600">
                     <i class="fas fa-calendar-alt mr-1"></i>Emploi du temps
                 </a>
+                <a href="seances_zoom.php" class="text-gray-600 hover:text-green-600">
+                    <i class="fas fa-video mr-1"></i>Visio Zoom
+                </a>
                 <a href="notes.php" class="text-gray-600 hover:text-green-600">
                     <i class="fas fa-chart-line mr-1"></i>Notes
                 </a>
@@ -145,6 +148,18 @@ $total_ressources = count($ressources);
                     <div class="ml-4">
                         <h3 class="text-lg font-semibold text-gray-800">Classes enseignées</h3>
                         <p class="text-2xl font-bold text-blue-600"><?php echo $total_classes; ?></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center">
+                    <div class="bg-indigo-100 rounded-full p-3">
+                        <i class="fas fa-video text-indigo-600 text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <h3 class="text-lg font-semibold text-gray-800">Visio Zoom</h3>
+                        <a href="seances_zoom.php" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">Planifier ou partager</a>
                     </div>
                 </div>
             </div>

@@ -7,6 +7,7 @@
 session_start();
 require_once '../config/database.php';
 require_once '../config/utils.php';
+require_once '../config/email.php';
 
 if (!isLoggedIn() || !hasRole('resp_filiere')) {
     redirectWithMessage('../shared/login.php', 'Accès non autorisé.', 'error');
@@ -132,6 +133,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     ':debut' => $times[0],
                     ':fin' => $times[1]
                 ]);
+
+                // Notifications enseignant et étudiants de la classe
+                $edt_id = (int)$conn->lastInsertId();
+                $classe_nom = '';
+                $classe_nom_stmt = $conn->prepare("SELECT nom_classe FROM classes WHERE id = :cid");
+                $classe_nom_stmt->execute([':cid' => $classe_id]);
+                $classe_nom = (string)$classe_nom_stmt->fetchColumn();
+
+                $titre_notif = "Nouvel horaire ajouté";
+                $texte_notif = "Cours " . $enseignement['matiere'] . " pour la classe " . $classe_nom . " le " . ($jours_semaine[$jour_semaine] ?? $jour_semaine) . " " . $creneau . (trim($salle) ? " salle " . $salle : "") . " (" . $annee_academique . ")";
+
+                $notif_stmt = $conn->prepare("INSERT INTO notifications (user_id, titre, message, type, lien) VALUES (:uid, :titre, :msg, :type, :lien)");
+                // Notifier l'enseignant concerné
+                $notif_stmt->execute([
+                    ':uid' => $enseignant_id,
+                    ':titre' => $titre_notif,
+                    ':msg' => $texte_notif,
+                    ':type' => 'edt',
+                    ':lien' => '../enseignant/emploi_du_temps.php'
+                ]);
+
+                // Envoyer email à l'enseignant
+                $prof_info = $conn->prepare("SELECT name, email FROM users WHERE id = :id");
+                $prof_info->execute([':id' => $enseignant_id]);
+                $prof = $prof_info->fetch(PDO::FETCH_ASSOC);
+                if ($prof && !empty($prof['email'])) {
+                    $coursDetails = [
+                        'matiere' => $enseignement['matiere'],
+                        'classe' => $classe_nom,
+                        'jour' => $jours_semaine[$jour_semaine] ?? $jour_semaine,
+                        'creneau' => $creneau,
+                        'salle' => $salle,
+                        'annee' => $annee_academique
+                    ];
+                    sendEdtNotification($prof['email'], $prof['name'], $coursDetails);
+                }
+
+                // Notifier les étudiants inscrits de la classe
+                $eleves_stmt = $conn->prepare("SELECT u.id, u.name, u.email FROM inscriptions i JOIN users u ON i.user_id = u.id WHERE i.classe_id = :cid AND i.statut IN ('inscrit', 'reinscrit')");
+                $eleves_stmt->execute([':cid' => $classe_id]);
+                $eleves = $eleves_stmt->fetchAll(PDO::FETCH_ASSOC);
+                foreach ($eleves as $etu) {
+                    $notif_stmt->execute([
+                        ':uid' => $etu['id'],
+                        ':titre' => $titre_notif,
+                        ':msg' => $texte_notif,
+                        ':type' => 'edt',
+                        ':lien' => '../etudiant/emploi_du_temps.php'
+                    ]);
+                    
+                    // Envoyer email à l'étudiant
+                    if (!empty($etu['email'])) {
+                        $coursDetails = [
+                            'matiere' => $enseignement['matiere'],
+                            'classe' => $classe_nom,
+                            'jour' => $jours_semaine[$jour_semaine] ?? $jour_semaine,
+                            'creneau' => $creneau,
+                            'salle' => $salle,
+                            'annee' => $annee_academique
+                        ];
+                        sendEdtNotification($etu['email'], $etu['name'], $coursDetails);
+                    }
+                }
                 
                 $message = "Cours ajouté avec succès.";
                 $message_type = "success";

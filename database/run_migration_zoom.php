@@ -3,12 +3,20 @@
  * Script d'exécution de la migration pour les séances Zoom
  */
 
-require_once '../config/database.php';
+require_once __DIR__ . '/../config/database.php';
 
 $database = new Database();
 $conn = $database->getConnection();
 
 try {
+    // Créer la table cours si elle n'existe pas (nom minimal pour clé étrangère)
+    $conn->exec("CREATE TABLE IF NOT EXISTS cours (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nom_cours VARCHAR(255) NOT NULL,
+        description TEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
     // Créer la table seances_zoom
     $conn->exec("CREATE TABLE IF NOT EXISTS seances_zoom (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -25,12 +33,11 @@ try {
         cours_id INT,
         enseignant_id INT NOT NULL,
         date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (classe_id) REFERENCES classes(id) ON DELETE CASCADE,
-        FOREIGN KEY (cours_id) REFERENCES cours(id) ON DELETE SET NULL,
-        FOREIGN KEY (enseignant_id) REFERENCES users(id) ON DELETE CASCADE,
-        INDEX (date_seance),
-        INDEX (enseignant_id)
-    )");
+        INDEX (classe_id),
+        INDEX (cours_id),
+        INDEX (enseignant_id),
+        INDEX (date_seance)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
     echo "✓ Table seances_zoom créée avec succès<br>";
 
@@ -40,23 +47,23 @@ try {
         seance_id INT NOT NULL,
         user_id INT NOT NULL,
         date_vue TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (seance_id) REFERENCES seances_zoom(id) ON DELETE CASCADE,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         UNIQUE KEY (seance_id, user_id),
+        INDEX (seance_id),
+        INDEX (user_id),
         INDEX (date_vue)
-    )");
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
     echo "✓ Table user_vues_zoom créée avec succès<br>";
 
     // Vérifier et créer le dossier uploads/zoom
-    if (!is_dir('../uploads/zoom')) {
-        mkdir('../uploads/zoom', 0755, true);
+    if (!is_dir(__DIR__ . '/../uploads/zoom')) {
+        mkdir(__DIR__ . '/../uploads/zoom', 0755, true);
         echo "✓ Dossier uploads/zoom créé<br>";
     }
 
     // Vérifier et créer le dossier uploads/profils
-    if (!is_dir('../uploads/profils')) {
-        mkdir('../uploads/profils', 0755, true);
+    if (!is_dir(__DIR__ . '/../uploads/profils')) {
+        mkdir(__DIR__ . '/../uploads/profils', 0755, true);
         echo "✓ Dossier uploads/profils créé<br>";
     }
 

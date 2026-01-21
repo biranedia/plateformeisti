@@ -357,7 +357,7 @@ foreach ($classes_list as $classe) {
 $stats_classes['moyenne_capacite'] = $stats_classes['total'] > 0 ? round($total_capacite / $stats_classes['total']) : 0;
 
 // Récupération des années académiques pour les filtres
-$annees_query = "SELECT id, annee_academique, description FROM annees_academiques WHERE active = 1 ORDER BY annee_academique DESC";
+$annees_query = "SELECT id, annee_academique FROM annees_academiques WHERE is_active = 1 ORDER BY annee_academique DESC";
 $annees_stmt = $conn->prepare($annees_query);
 $annees_stmt->execute();
 $annees_list = $annees_stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -394,7 +394,7 @@ $niveaux = [
                     <h1 class="text-xl font-bold">Plateforme ISTI - Responsable Filière</h1>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <span class="text-sm">Filière: <?php echo htmlspecialchars($filiere['nom_filiere']); ?></span>
+                    <span class="text-sm">Filière: <?php echo htmlspecialchars($filiere['nom'] ?? ($filiere['nom_filiere'] ?? '')); ?></span>
                     <span class="text-sm">Bienvenue, <?php echo htmlspecialchars($_SESSION['user_name'] ?? 'Resp. Filière'); ?></span>
                     <a href="../shared/logout.php" class="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm transition duration-200">
                         <i class="fas fa-sign-out-alt mr-1"></i>Déconnexion

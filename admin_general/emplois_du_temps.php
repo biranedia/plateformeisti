@@ -53,6 +53,102 @@ if ($classe_filter) {
     ]);
     $emploi_du_temps = $edt_stmt->fetchAll(PDO::FETCH_ASSOC);
 }
+
+// Enseignements existants pour la classe sélectionnée
+$enseignements = [];
+if ($classe_filter) {
+    $ens_stmt = $conn->prepare("SELECT e.id, e.matiere, u.name as enseignant_nom, e.enseignant_id
+                                FROM enseignements e
+                                JOIN users u ON e.enseignant_id = u.id
+                                WHERE e.classe_id = :classe_id
+                                ORDER BY e.matiere");
+    $ens_stmt->execute([':classe_id' => $classe_filter]);
+    $enseignements = $ens_stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+// Liste des enseignants (pour créer une matière à la volée)
+$enseignants = $conn->query("SELECT id, name FROM users WHERE role = 'enseignant' ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+
+// Création d'un cours (emploi du temps)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_cours') {
+    $classe_id = (int)($_POST['classe_id'] ?? 0);
+    $enseignement_id = (int)($_POST['enseignement_id'] ?? 0);
+    $new_matiere = trim($_POST['new_matiere'] ?? '');
+    $new_enseignant_id = (int)($_POST['enseignant_id'] ?? 0);
+    $jour_semaine = (int)($_POST['jour_semaine'] ?? 0);
+    $creneau = sanitize($_POST['creneau'] ?? '');
+    $salle = sanitize($_POST['salle'] ?? '');
+    $annee_academique = sanitize($_POST['annee_academique'] ?? '');
+
+    $errors = [];
+    if (!$classe_id) $errors[] = "Classe requise";
+    if (!$enseignement_id && $new_matiere === '') $errors[] = "Sélectionnez ou créez une matière";
+    if ($new_matiere !== '' && !$new_enseignant_id) $errors[] = "Choisissez l'enseignant pour la nouvelle matière";
+    if (!$jour_semaine) $errors[] = "Jour requis";
+    if ($creneau === '') $errors[] = "Créneau requis";
+
+    if (empty($errors)) {
+        // Créer l'enseignement si nécessaire
+        if (!$enseignement_id && $new_matiere !== '' && $new_enseignant_id) {
+            $ins = $conn->prepare("INSERT INTO enseignements (enseignant_id, classe_id, matiere, volume_horaire) VALUES (:eid, :cid, :mat, :vh)");
+            $ins->execute([
+                ':eid' => $new_enseignant_id,
+                ':cid' => $classe_id,
+                ':mat' => $new_matiere,
+                ':vh' => 30
+            ]);
+            $enseignement_id = (int)$conn->lastInsertId();
+        }
+
+        // Récupérer l'enseignement
+        $ens = $conn->prepare("SELECT e.id, e.matiere, e.enseignant_id FROM enseignements e WHERE e.id = :id AND e.classe_id = :cid");
+        $ens->execute([':id' => $enseignement_id, ':cid' => $classe_id]);
+        $enseignement = $ens->fetch(PDO::FETCH_ASSOC);
+
+        if ($enseignement) {
+            // Conflits
+            $conf = $conn->prepare("SELECT COUNT(*) FROM emplois_du_temps 
+                                    WHERE jour_semaine = :jour AND creneau_horaire = :creneau AND annee_academique = :annee
+                                    AND (enseignant_id = :eid OR classe_id = :cid OR salle = :salle)");
+            $conf->execute([
+                ':jour' => $jour_semaine,
+                ':creneau' => $creneau,
+                ':annee' => $annee_academique,
+                ':eid' => $enseignement['enseignant_id'],
+                ':cid' => $classe_id,
+                ':salle' => $salle
+            ]);
+            if ((int)$conf->fetchColumn() === 0) {
+                $times = explode('-', $creneau);
+                $insEdt = $conn->prepare("INSERT INTO emplois_du_temps (classe_id, enseignant_id, matiere_nom, jour_semaine, creneau_horaire, salle, annee_academique, heure_debut, heure_fin)
+                                           VALUES (:cid, :eid, :mat, :jour, :cren, :salle, :annee, :debut, :fin)");
+                $insEdt->execute([
+                    ':cid' => $classe_id,
+                    ':eid' => $enseignement['enseignant_id'],
+                    ':mat' => $enseignement['matiere'],
+                    ':jour' => $jour_semaine,
+                    ':cren' => $creneau,
+                    ':salle' => $salle,
+                    ':annee' => $annee_academique,
+                    ':debut' => $times[0] ?? null,
+                    ':fin' => $times[1] ?? null
+                ]);
+                redirectWithMessage('emplois_du_temps.php?classe=' . $classe_id . '&filiere_id=' . $filiere_filter . '&annee=' . urlencode($annee_academique), 'Cours ajouté.', 'success');
+                exit;
+            } else {
+                redirectWithMessage('emplois_du_temps.php?classe=' . $classe_id . '&filiere_id=' . $filiere_filter . '&annee=' . urlencode($annee_academique), 'Conflit d\'horaire : enseignant, classe ou salle déjà occupé.', 'error');
+                exit;
+            }
+        } else {
+            redirectWithMessage('emplois_du_temps.php', "Enseignement introuvable.", 'error');
+            exit;
+        }
+    } else {
+        $err = implode(' | ', $errors);
+        redirectWithMessage('emplois_du_temps.php?classe=' . $classe_id . '&filiere_id=' . $filiere_filter . '&annee=' . urlencode($annee_academique), $err, 'error');
+        exit;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -133,6 +229,12 @@ if ($classe_filter) {
     <?php if ($classe_filter): ?>
     <div class="bg-white rounded-lg shadow-md p-6">
         <h2 class="text-xl font-bold text-gray-800 mb-6"><i class="fas fa-calendar-alt mr-2"></i>Emploi du temps</h2>
+        <div class="mb-4 flex justify-end">
+            <button type="button" onclick="document.getElementById('addCoursModal').classList.remove('hidden')"
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md">
+                <i class="fas fa-plus mr-2"></i>Ajouter un cours
+            </button>
+        </div>
         <?php if (empty($emploi_du_temps)): ?>
             <div class="text-center py-12">
                 <i class="fas fa-calendar text-gray-300 text-6xl mb-4"></i>
@@ -174,5 +276,90 @@ if ($classe_filter) {
     </div>
     <?php endif; ?>
 </main>
+
+<!-- Modal ajout cours -->
+<?php if ($classe_filter): ?>
+<div id="addCoursModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-plus mr-2"></i>Ajouter un cours</h3>
+                    <button onclick="closeAddModal()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times text-xl"></i></button>
+                </div>
+
+                <form method="POST">
+                    <input type="hidden" name="action" value="add_cours">
+                    <input type="hidden" name="classe_id" value="<?php echo $classe_filter; ?>">
+                    <input type="hidden" name="annee_academique" value="<?php echo htmlspecialchars($annee_filter); ?>">
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Matière existante</label>
+                        <select name="enseignement_id" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="">Sélectionner une matière</option>
+                            <?php foreach ($enseignements as $ens): ?>
+                                <option value="<?php echo $ens['id']; ?>"><?php echo htmlspecialchars($ens['matiere']); ?> - <?php echo htmlspecialchars($ens['enseignant_nom']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Ou saisissez une nouvelle matière ci-dessous.</p>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Nouvelle matière (optionnel)</label>
+                        <input type="text" name="new_matiere" placeholder="Ex: Mathématiques" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Enseignant (pour nouvelle matière)</label>
+                        <select name="enseignant_id" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="">Sélectionner un enseignant</option>
+                            <?php foreach ($enseignants as $prof): ?>
+                                <option value="<?php echo $prof['id']; ?>"><?php echo htmlspecialchars($prof['name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Jour</label>
+                        <select name="jour_semaine" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                            <?php foreach ($jours_semaine as $num => $nom): ?>
+                                <option value="<?php echo $num; ?>"><?php echo $nom; ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Créneau horaire</label>
+                        <select name="creneau" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="08:00-09:30">08:00-09:30</option>
+                            <option value="09:30-11:00">09:30-11:00</option>
+                            <option value="11:00-12:30">11:00-12:30</option>
+                            <option value="13:00-14:30">13:00-14:30</option>
+                            <option value="14:30-16:00">14:30-16:00</option>
+                            <option value="16:00-17:30">16:00-17:30</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Salle</label>
+                        <input type="text" name="salle" placeholder="Ex: A101" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="closeAddModal()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded-md">Annuler</button>
+                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md">
+                            <i class="fas fa-save mr-2"></i>Enregistrer
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    </div>
+    <script>
+        function closeAddModal(){ document.getElementById('addCoursModal').classList.add('hidden'); }
+        document.getElementById('addCoursModal').addEventListener('click', function(e){ if(e.target===this) closeAddModal(); });
+    </script>
+<?php endif; ?>
 </body>
 </html>

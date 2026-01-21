@@ -200,14 +200,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 // Construction de la requête d'export
                 $query = "SELECT i.*, u.name, u.email, u.phone,
-                         c.nom_classe, aa.annee_academique, aa.description as annee_desc,
-                         v.name as valide_nom
+                         c.nom_classe, aa.annee_academique
                          FROM inscriptions i
                          JOIN users u ON i.user_id = u.id
-                         LEFT JOIN classes c ON i.classe_id = c.id
+                         JOIN classes c ON i.classe_id = c.id
                          LEFT JOIN annees_academiques aa ON i.annee_academique = aa.annee_academique
-                         LEFT JOIN users v ON i.valide_par = v.id
-                         WHERE i.filiere_id = :filiere_id";
+                         WHERE c.filiere_id = :filiere_id";
 
                 $params = [':filiere_id' => $filiere['id']];
 
@@ -248,14 +246,12 @@ $search = $_GET['search'] ?? '';
 
 // Construction de la requête avec filtres
 $query = "SELECT i.*, u.name, u.email, u.phone,
-         c.nom_classe, aa.annee_academique, aa.description as annee_desc,
-         v.name as valide_nom
+         c.nom_classe, aa.annee_academique
          FROM inscriptions i
          JOIN users u ON i.user_id = u.id
-         LEFT JOIN classes c ON i.classe_id = c.id
+         JOIN classes c ON i.classe_id = c.id
          LEFT JOIN annees_academiques aa ON i.annee_academique = aa.annee_academique
-         LEFT JOIN users v ON i.valide_par = v.id
-         WHERE i.filiere_id = :filiere_id";
+         WHERE c.filiere_id = :filiere_id";
 
 $params = [':filiere_id' => $filiere['id']];
 
@@ -308,7 +304,7 @@ foreach ($inscriptions_list as $inscription) {
 }
 
 // Récupération des années académiques pour les filtres
-$annees_query = "SELECT id, annee_academique, description FROM annees_academiques WHERE active = 1 ORDER BY annee_academique DESC";
+$annees_query = "SELECT id, annee_academique FROM annees_academiques WHERE is_active = 1 ORDER BY annee_academique DESC";
 $annees_stmt = $conn->prepare($annees_query);
 $annees_stmt->execute();
 $annees_list = $annees_stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -347,7 +343,7 @@ $statuts = [
                     <h1 class="text-xl font-bold">Plateforme ISTI - Responsable Filière</h1>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <span class="text-sm">Filière: <?php echo htmlspecialchars($filiere['nom_filiere']); ?></span>
+                    <span class="text-sm">Filière: <?php echo htmlspecialchars($filiere['nom'] ?? ($filiere['nom_filiere'] ?? '')); ?></span>
                     <span class="text-sm">Bienvenue, <?php echo htmlspecialchars($_SESSION['user_name'] ?? 'Resp. Filière'); ?></span>
                     <a href="../shared/logout.php" class="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm transition duration-200">
                         <i class="fas fa-sign-out-alt mr-1"></i>Déconnexion

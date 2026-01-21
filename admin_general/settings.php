@@ -191,6 +191,8 @@ $current_settings = [
 
 // Liste des fuseaux horaires
 $timezones = [
+    'Africa/Dakar' => 'Africa/Dakar - Sénégal (UTC+0)',
+    'Africa/Casablanca' => 'Africa/Casablanca - Maroc (UTC+0/+1)',
     'Europe/Paris' => 'Europe/Paris (UTC+1/+2)',
     'Europe/London' => 'Europe/London (UTC+0/+1)',
     'America/New_York' => 'America/New_York (UTC-5/-4)',
